@@ -78,12 +78,17 @@
 `idelta(v range-vector)`函数，输入一个范围向量，返回key: value = 度量指标： 每最后两个样本值差值。
 
 ### increase()
-`increase(v range-vector)`函数， 输入一个范围向量，返回：key:value = 度量指标：last值-first值，自动调整单调性，如：服务实例重启，则计数器重置。与`delta()`不同之处在于delta是求差值，而increase返回最后一个减第一个值,可为正为负。
 
-下面的表达式例子，返回过去5分钟，连续两个时间序列数据样本值的http请求增加值。
+`increase(v range-vector)` 函数，计算指定的时间范围内时序指标的增长变化，输入一个范围向量，返回：key:value = 度量指标：last 值 - first 值，自动调整单调性，如：服务实例重启，则计数器重置。与 `delta()` 不同之处在于 delta 是求差值，而 increase 返回的是最后一个减去第一个的值, 可为正为负。
+
+`increase` 在其指定的范围向量中会 `推断` 缺失的数值，所以它有可能返回非整数的结果, 即使 `counter` 是按整数增长的。
+
+下面的表达式例子，返回过去 5 分钟，时间序列数据样本值的 http 请求增加值。
 > increase(http_requests_total{job="api-server"}[5m])
 
-`increase`的返回值类型只能是counters，主要作用是增加图表和数据的可读性，使用`rate`记录规则的使用率，以便持续跟踪数据样本值的变化。
+`increase`的返回值类型只能是 counters，主要作用是增加图表和数据的可读性，使用 `rate` 记录规则的使用率，以便持续跟踪数据样本值的变化。
+
+`increase` 函数可以看做是 `rate(v)` 函数的 `语法糖`，`rate(v)` 的结果乘以指定时间范围窗口下的秒数就是 `increase(v)` 的值，`increase` 主要是为了增加可读性。在 `recording rules` 中使用 `rate`函数，相当于使用了每秒级别的 `increase` 函数。
 
 ### irate
 `irate(v range-vector)`函数, 输入：范围向量，输出：key: value = 度量指标： (last值-last前一个值)/时间戳差值。它是基于最后两个数据点，自动调整单调性， 如：服务实例重启，则计数器重置。
@@ -133,7 +138,12 @@
 ```
 
 ### rate()
-`rate(v range-vector)`函数, 输入：范围向量，输出：key: value = 不带有度量指标，且只有标签列表：(last值-first值)/时间差s
+`rate(v range-vector)`函数, 是计算范围向量中，时序值每秒的平均增长速率。
+
+如果指定的范围向量 `末端` 缺少数值， 将推测计算缺失的数值。
+
+输入：范围向量，输出：key: value = 不带有度量指标，且只有标签列表：(last值-first值)/时间差s
+
 ```
 rate(http_requests_total[5m])
 结果：
@@ -149,7 +159,10 @@ rate(http_requests_total[5m])
 
 `rate()`函数返回值类型只能用counters， 当用图表显示增长缓慢的样本数据时，这个函数是非常合适的。
 
-注意：当rate函数和聚合方式联合使用时，一般先使用rate函数，再使用聚合操作, 否则，当服务实例重启后，rate无法检测到counter重置。
+注意：当rate函数和聚合方式联合使用时，一般先使用 rate 函数，再使用聚合操作, 否则，当服务实例重启后，rate无法检测到counter重置。
+
+总结：
+`rate` 函数计算的数值具有相对意义，与基数无关，可结合 `increase` 函数使用增加可读性。
 
 ### resets()
 `resets()`函数, 输入：一个范围向量，输出：key-value=没有度量指标，且有标签列表[在这个范围向量中每个度量指标被重置的次数]。在两个连续样本数据值下降，也可以理解为counter被重置。
